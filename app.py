@@ -1,5 +1,5 @@
 from urllib import request
-from youtube_transcript_api import YouTubeTranscriptApi
+from youtube_transcript_api import YouTubeTranscriptApi, TranscriptsDisabled
 from openai import AsyncOpenAI
 import asyncio
 from dotenv import load_dotenv
@@ -44,6 +44,7 @@ async def generate_response(user_prompt, model, api_key, base_url="https://api.o
             response = completion.choices[0].message.content
 
         except Exception as e:
+            print("Error generating response:", e)
             if attempt < MAX_RETRIES - 1:  # don't wait after the last attempt
                 await asyncio.sleep(1 * (2**attempt))
             else:
@@ -52,11 +53,13 @@ async def generate_response(user_prompt, model, api_key, base_url="https://api.o
         return response
     
 async def generate_transcript(video_id: str):
-    transcript = YouTubeTranscriptApi.get_transcript(video_id)
-    full_transcript = ""
-    for t in transcript:
-        full_transcript += t['text'] + " "
-    return full_transcript
+    try:
+        transcript = YouTubeTranscriptApi.get_transcript(video_id)
+        full_transcript = " ".join(t['text'] for t in transcript)
+        return full_transcript
+    except TranscriptsDisabled:
+        print(f"Transcripts are disabled for video {video_id}. Skipping...")
+        return None
 
 def punctuate_text(text):
     model = PunctuationModel()
@@ -78,10 +81,22 @@ async def main():
     start_time = time.time()
     #get all videos from channel
     videos = scrapetube.get_channel("UCbaQv8_DS1n8puOnJRzLPzw")
+    count = 0
     for vid in videos:
+        count += 1
         #start vid_timer
         vid_start_time = time.time()
-        transcript = await generate_transcript(vid)
+        vid_id = vid['videoId']
+        # Assuming `video_id` is the dictionary containing video details
+        video_title = vid['title']['runs'][0]['text']
+        print("Video Title:", video_title)
+        #if video title exists in transcripts folder, skip
+        if video_title in os.listdir("transcripts"):
+            print(f"Skipping {video_title} as it already exists in transcripts folder")
+            continue
+        transcript = await generate_transcript(vid_id)
+        if transcript is None:
+            continue  # Skip further processing for this video
         print("TRANSCRIPT RETRIEVED")
         transcript = punctuate_text(transcript)
         print("TRANSCRIPT PUNCTUATED")
@@ -92,30 +107,35 @@ async def main():
         for i in range(0, len(sentences), 10):
             chunks.append(' '.join(sentences[i:i+10]))
         print("CHUNKS")
-        # #get the youtube video title
-        url = f"https://www.youtube.com/watch?v={vid}"
-        response = requests.get(url)
-        soup = BeautifulSoup(response.text, 'html.parser')
-        title = soup.find('title').text
-        title = title.split(' - ')[0]
+        
 
         for chunk in chunks:
             print("CHUNK")
-            response = await generate_response(chunk, LLM_MODEL, API_KEY, BASE_URL, 0)
+            try:
+                response = await generate_response(chunk, LLM_MODEL, API_KEY, BASE_URL, 0)
+            except Exception as e:
+                print(f"Failed to generate response: {e}")
+                exit()
+            # Replace problematic characters in the file name
+            safe_video_title = video_title.replace('/', '-').replace('\\', '-')
             # Write the response to a file named after the video ID in the transcripts folder
-            with open(f"transcripts/{title}", "a") as file:
+            with open(f"transcripts/{safe_video_title}", "a") as file:
                 if file.tell() == 0:  # Check if file is empty to write metadata at the top
-                    file.write(f"#DANSWER_METADATA={{{{'link': 'https://www.youtube.com/watch?v={vid}'}}}}\n")
+                    file.write(f"#DANSWER_METADATA={{{{'link': 'https://www.youtube.com/watch?v={vid['videoId']}'}}}}\n")
                 file.write(response + "\n")
                 # indicate progress based on the number of chunks
                 print(f"Progress: {chunks.index(chunk) + 1}/{len(chunks)}")
             print("CHUNK WRITE")
-        print(f"Wrote transcript to file: {title}")
+        print(f"Wrote transcript to file: {video_title}")
         video_duration_seconds = time.time() - vid_start_time
         video_minutes = int(video_duration_seconds // 60)
         video_seconds = int(video_duration_seconds % 60)
-        print(f"Time taken for video {title}: {video_minutes} minutes and {video_seconds} seconds")
-        
+        print(f"Time taken for video {video_title}: {video_minutes} minutes and {video_seconds} seconds")
+        total_duration_seconds = time.time() - start_time
+        total_minutes = int(total_duration_seconds // 60)
+        total_seconds = int(total_duration_seconds % 60)
+        print(f"Total time taken for completed videos: {total_minutes} minutes and {total_seconds} seconds")
+        print(f"Total videos completed: {count}")
     total_duration_seconds = time.time() - start_time
     total_minutes = int(total_duration_seconds // 60)
     total_seconds = int(total_duration_seconds % 60)
