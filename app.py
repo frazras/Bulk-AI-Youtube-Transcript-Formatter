@@ -83,6 +83,8 @@ async def main():
     channel_id = "UCbaQv8_DS1n8puOnJRzLPzw"
     videos = scrapetube.get_channel(channel_id)
     count = 0
+    # Create directory for transcripts if it doesn't exist
+    os.makedirs(f"transcripts/{channel_id}", exist_ok=True)
     for vid in videos:
         count += 1
         #start vid_timer
@@ -90,8 +92,9 @@ async def main():
         vid_id = vid['videoId']
         # Assuming `video_id` is the dictionary containing video details
         video_title = vid['title']['runs'][0]['text']
+        safe_video_title = video_title.replace('/', '-').replace('\\', '-') + ".txt"
         #if video title exists in transcripts folder, skip
-        if video_title in os.listdir("transcripts"):
+        if safe_video_title in os.listdir(f"transcripts/{channel_id}"):
             print(f"Skipping {video_title} as it already exists in transcripts folder")
             continue
         transcript = await generate_transcript(vid_id)
@@ -111,8 +114,6 @@ async def main():
             except Exception as e:
                 print(f"Failed to generate response: {e}")
                 exit()
-            # Replace problematic characters in the file name
-            safe_video_title = video_title.replace('/', '-').replace('\\', '-')
             # Write the response to a file named after the video ID in the transcripts folder and channel id folder
             with open(f"transcripts/{channel_id}/{safe_video_title}", "a") as file:
                 if file.tell() == 0:  # Check if file is empty to write metadata at the top
