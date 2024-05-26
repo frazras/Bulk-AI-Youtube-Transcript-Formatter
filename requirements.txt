@@ -1,0 +1,2 @@
+youtube-transcript-api==0.6.2
+scrapetube==2.5.1
