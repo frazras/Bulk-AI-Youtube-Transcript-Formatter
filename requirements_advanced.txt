@@ -1,0 +1,7 @@
+deepmultilingualpunctuation==1.0.1
+dotenv==0.0.5
+nltk==3.8.1
+openai==1.27.0
+scrapetube==2.5.1
+youtube-transcript-api==0.6.2
+
