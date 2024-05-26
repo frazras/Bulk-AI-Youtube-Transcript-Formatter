@@ -1,5 +1,8 @@
 # Bulk-AI-Youtube-Transcript-Formatter
-This repository contains two Python scripts designed to fetch and format YouTube video transcripts. The first script, `app.py`, provides basic functionality for fetching transcripts, while the second script, `app_advanced.py`, includes additional features such as punctuation restoration and formatting using AI models
+This repository contains two Python scripts designed to fetch and format YouTube video transcripts. The first script, `app.py`, provides basic functionality for fetching transcripts, most people will only need this. 
+While the second script, `app_advanced.py`, includes additional features such as punctuation restoration and formatting using AI models
+
+`app_advanced.py` requires that you download a 2GB+ AI model and takes a much longer time to process each transcript, But produces a formatted, punctuated transcript, ideal for human consumption. For the purposes of feeding the transcript to another AI model, this is not a necessity unless humans are going to be reading the transcripts.
 
 # Prerequisites
 Before running the scripts, ensure you have Python installed on your system. Python can be downloaded from python.org. You will need Python 3.6 or higher.
